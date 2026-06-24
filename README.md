@@ -60,11 +60,10 @@ Evaluar el funcionamiento, la arquitectura, la seguridad y la calidad del códig
 
 ### Objetivos Específicos
 
-1. Verificar que el sistema se puede desplegar y operar correctamente usando el modelo `smollm:360m` de Ollama.
-2. Evaluar la seguridad de los datos y los controles de acceso a la API y base de datos.
-3. Comprobar la calidad del código fuente y la adherencia a buenas prácticas de desarrollo.
-4. Validar el funcionamiento del flujo completo: clasificación de intenciones → RAG → bucle de feedback → creación de ticket.
-5. Identificar vulnerabilidades, riesgos y áreas de mejora en la infraestructura tecnológica.
+1. **Evaluar la infraestructura y el despliegue en contenedores:** Verificar la correcta operatividad e integración de los servicios del sistema (Proxy, Frontend, Backend y Ollama) en entorno Docker. (Evidenciado en [ANX-01](file:///c:/Auditoria/CursoAuditoria-Vilca/evidencias/ANX-01-servicios-docker.md) y [ANX-02](file:///c:/Auditoria/CursoAuditoria-Vilca/evidencias/ANX-02-modelo-smollm.md))
+2. **Validar la precisión de la recuperación y flujo conversacional RAG:** Evaluar el proceso de ingesta de documentos, clasificación de intenciones y la interacción con la base vectorial ChromaDB. (Evidenciado en [ANX-03](file:///c:/Auditoria/CursoAuditoria-Vilca/evidencias/ANX-03-ingesta-rag-vectorstore.md) y [ANX-05](file:///c:/Auditoria/CursoAuditoria-Vilca/evidencias/ANX-05-pruebas-conversacionales.md))
+3. **Verificar el flujo de gestión de incidentes y persistencia:** Confirmar la creación y correcto registro en base de datos de los tickets de soporte técnico generados por los usuarios. (Evidenciado en [ANX-04](file:///c:/Auditoria/CursoAuditoria-Vilca/evidencias/ANX-04-creacion-tickets-sqlite.md))
+4. **Analizar la calidad del código, arquitectura y seguridad:** Identificar vulnerabilidades de control de acceso, configuración CORS y buenas prácticas en los componentes de software del sistema. (Evidenciado en [ANX-06](file:///c:/Auditoria/CursoAuditoria-Vilca/evidencias/ANX-06-revision-codigo-fuente.md))
 
 ---
 

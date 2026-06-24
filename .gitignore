@@ -3,3 +3,7 @@ AuditoriaRiesgos/Caso.md
 AuditoriaRiesgos/Caso.pdf
 AuditoriaRiesgos/Resumen.pdf
 AuditoriaHelpDeskIA.zip
+
+# Runtime databases and vector stores
+AuditoriaHelpDeskIA/backend/tickets.db
+AuditoriaHelpDeskIA/backend/vector_store/
