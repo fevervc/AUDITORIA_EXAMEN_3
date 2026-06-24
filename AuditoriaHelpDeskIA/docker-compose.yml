@@ -2,9 +2,14 @@
 version: '3.8'
 
 services:
-  # Servicio del Backend (sin puertos expuestos)
+  # Servicio del Backend
   backend:
     build: ./backend
+    ports:
+      - "8000:8000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       # Esto asegura que la base de datos y el conocimiento persistan
       - ./backend/vector_store:/app/vector_store

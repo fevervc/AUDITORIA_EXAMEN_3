@@ -44,14 +44,14 @@ DB_PATH = "tickets.db"
 app = FastAPI(title="Corporate EPIS Pilot API - Advanced Flow")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
+    allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"],
 )
 
 # --- AÑADIDO: INSTRUMENTACIÓN DE PROMETHEUS ---
 Instrumentator().instrument(app).expose(app)
 
 
-llm = OllamaLLM(model="llama3.1:8b", temperature=0, base_url="http://host.docker.internal:11434")
+llm = OllamaLLM(model="smollm:360m", temperature=0, base_url="http://host.docker.internal:11434")
 embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
 vector_store = Chroma(persist_directory=VECTOR_STORE_DIR, embedding_function=embeddings)
 retriever = vector_store.as_retriever()
@@ -75,33 +75,46 @@ def create_support_ticket(description: str) -> str:
     conn.close()
     return f"De acuerdo. He creado el ticket de soporte #{ticket_id} con tu problema: '{problem_description}'. El equipo técnico se pondrá en contacto contigo."
 
-# El router ahora es más simple
-# CAMBIO 1: Añadimos la nueva intención 'despedida'
+# El router ahora es más simple y robusto para smollm:360m
 class RouteQuery(BaseModel):
     intent: Literal["pregunta_general", "reporte_de_problema", "despedida"] = Field(description="La intención del usuario.")
 
-output_parser = JsonOutputParser(pydantic_object=RouteQuery)
-# CAMBIO 2: Actualizamos el prompt para que el LLM sepa qué es una 'despedida'
 router_prompt = PromptTemplate(
-    template="""
-    Clasifica la pregunta del usuario en 'pregunta_general', 'reporte_de_problema' o 'despedida'. Responde solo con JSON.
-    'pregunta_general': El usuario pide información (¿qué es?, ¿cuántos?, ¿cómo?).
-    'reporte_de_problema': El usuario describe un problema, algo está roto o no funciona.
-    'despedida': El usuario expresa gratitud o se despide (gracias, adiós, perfecto, vale).
-    Pregunta: {question}
-    Formato: {format_instructions}
-    """,
-    input_variables=["question"],
-    partial_variables={"format_instructions": output_parser.get_format_instructions()},
-)
-def extract_json_from_string(text: str) -> str:
-    match = re.search(r'\{.*\}', text, re.DOTALL)
-    # Si no encuentra JSON o la pregunta es muy corta, es probable que sea una despedida
-    if not match and len(text) < 20:
-        return '{"intent": "despedida"}'
-    return match.group(0) if match else '{"intent": "pregunta_general"}'
+    template="""Clasifica la pregunta del usuario en una de estas categorías:
+'pregunta_general': El usuario pide información general o hace una pregunta (¿qué es?, ¿cómo?, información, servicios).
+'reporte_de_problema': El usuario describe un fallo, error, problema técnico o algo que no funciona (no conecta, no enciende, da error).
+'despedida': El usuario se despide, saluda o agradece (gracias, adiós, hola, chau, perfecto, ok).
 
-router_chain = router_prompt | llm | RunnableLambda(extract_json_from_string) | output_parser
+Pregunta: {question}
+
+Responde únicamente con la palabra correspondiente a la categoría elegida, sin rodeos, sin explicaciones y sin comillas:""",
+    input_variables=["question"],
+)
+
+def parse_router_output(output_text: str) -> dict:
+    text = output_text.lower().strip()
+    if "reporte_de_problema" in text or "problema" in text or "error" in text or "fallo" in text or "falla" in text:
+        return {"intent": "reporte_de_problema"}
+    elif "despedida" in text or "gracias" in text or "adiós" in text or "adios" in text or "hola" in text or "chau" in text or "bye" in text or "ok" in text or "perfecto" in text:
+        return {"intent": "despedida"}
+    else:
+        return {"intent": "pregunta_general"}
+
+def pre_classify_and_route(input_dict: dict) -> dict:
+    question = input_dict.get("question", "").lower().strip()
+    saludos = {"hola", "gracias", "adiós", "adios", "chau", "chao", "bye", "gracia", "ok", "listo", "perfecto", "buenos dias", "buenas tardes"}
+    if question in saludos or any(s in question for s in ["gracias", "muchas gracias", "adios", "hasta luego"]):
+        return {"intent": "despedida"}
+    
+    prompt_val = router_prompt.format(question=question)
+    try:
+        response = llm.invoke(prompt_val)
+        return parse_router_output(response)
+    except Exception as e:
+        logger.error(f"Error invocado en router LLM: {e}")
+        return parse_router_output("pregunta_general")
+
+router_chain = RunnableLambda(pre_classify_and_route)
 
 chain_with_preserved_input = RunnablePassthrough.assign(decision=router_chain)
 
